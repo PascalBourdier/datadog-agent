@@ -3,7 +3,10 @@
 package http
 
 import (
+	"crypto/md5"
+	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
 	"runtime"
 	"strings"
@@ -11,6 +14,7 @@ import (
 	ddebpf "github.com/DataDog/datadog-agent/pkg/ebpf"
 	"github.com/DataDog/datadog-agent/pkg/network/config"
 	"github.com/DataDog/datadog-agent/pkg/network/ebpf/probes"
+	"github.com/DataDog/datadog-agent/pkg/util/log"
 	"github.com/DataDog/ebpf"
 	"github.com/DataDog/ebpf/manager"
 )
@@ -99,8 +103,9 @@ func (o *openSSLProgram) ConfigureManager(m *manager.Manager) {
 
 	// Load SSL & Crypto "base" probes
 	var extraProbes []string
-	extraProbes = append(extraProbes, sslProbes...)
+	extraProbes = append(extraProbes, openSSLProbes...)
 	extraProbes = append(extraProbes, cryptoProbes...)
+	extraProbes = append(extraProbes, gnuTLSProbes...)
 	for _, sec := range extraProbes {
 		m.Probes = append(m.Probes, &manager.Probe{
 			Section: sec,
@@ -161,8 +166,8 @@ func (o *openSSLProgram) Start() {
 		},
 		soRule{
 			re:           regexp.MustCompile(`libgnutls.so`),
-			registerCB:   addHooks(m, gnuTLSProbes),
-			unregisterCB: removeHooks(m, gnuTLSProbes),
+			registerCB:   addHooks(o.manager, gnuTLSProbes),
+			unregisterCB: removeHooks(o.manager, gnuTLSProbes),
 		},
 	)
 
@@ -179,7 +184,10 @@ func (o *openSSLProgram) Stop() {
 
 func addHooks(m *manager.Manager, probes []string) func(string) error {
 	return func(libPath string) error {
-		uid := libPath
+		log.Infof("libPath=%q", libPath)
+		without, err := filepath.EvalSymlinks(libPath)
+		log.Infof("without=%q, err=%#v", without, err)
+		uid := makeUID(libPath)
 		for _, sec := range probes {
 			p, found := m.GetProbe(manager.ProbeIdentificationPair{uid, sec})
 			if found {
@@ -211,7 +219,7 @@ func addHooks(m *manager.Manager, probes []string) func(string) error {
 
 func removeHooks(m *manager.Manager, probes []string) func(string) error {
 	return func(libPath string) error {
-		uid := libPath
+		uid := makeUID(libPath)
 		for _, sec := range probes {
 			p, found := m.GetProbe(manager.ProbeIdentificationPair{uid, sec})
 			if !found {
@@ -226,4 +234,18 @@ func removeHooks(m *manager.Manager, probes []string) func(string) error {
 
 func runningOnARM() bool {
 	return strings.HasPrefix(runtime.GOARCH, "arm")
+}
+
+// TODO change this; it's pretty cursed
+// but if the hash is the full 32 characters,
+// then the names get shortened
+// so that the uprobe names are >64 bytes.
+// if we trim the hash to 29 bytes,
+// all of the uprobes fit into the 29-character restriction.
+const uidLength int = 29
+
+func makeUID(libPath string) string {
+	hashBytes := md5.Sum([]byte(libPath))
+	hash := fmt.Sprintf("%x", hashBytes)
+	return hash[0:uidLength]
 }

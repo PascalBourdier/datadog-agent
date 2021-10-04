@@ -112,8 +112,8 @@ func (w *soWatcher) Start() {
 							libPath = hostPath
 						}
 
-						// TODO temporary: do not include this in PR
-						if withoutSymLinks, err := fp.EvalSymlinks(libPath); err == nil {
+						// Resolve symlinks in the library path
+						if withoutSymLinks, err := filepath.EvalSymlinks(libPath); err == nil {
 							libPath = withoutSymLinks
 						}
 
@@ -177,6 +177,13 @@ func (w *soWatcher) register(libPath string, r soRule) {
 func getSharedLibraries(procRoot string, filter *regexp.Regexp) []so.Library {
 	// libraries will include all host-resolved library paths mapped into memory
 	libraries := so.FindProc(procRoot, filter)
+
+	// Resolve all symlinks in library host paths
+	for i := range libraries {
+		if withoutSymLinks, err := filepath.EvalSymlinks(libraries[i].HostPath); err == nil {
+			libraries[i].HostPath = withoutSymLinks
+		}
+	}
 
 	// TODO: should we ensure all entries are unique in the `so` package instead?
 	seen := make(map[string]struct{}, len(libraries))
