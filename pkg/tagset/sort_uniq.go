@@ -1,6 +1,10 @@
-package util
+package tagset
 
-import "sort"
+import (
+	"sort"
+
+	"github.com/DataDog/datadog-agent/pkg/util"
+)
 
 // SortUniqInPlace sorts and remove duplicates from elements in place
 // The returned slice is a subslice of elements
@@ -9,8 +13,8 @@ func SortUniqInPlace(elements []string) []string {
 		return elements
 	}
 	size := len(elements)
-	if size <= InsertionSortThreshold {
-		InsertionSort(elements)
+	if size <= util.InsertionSortThreshold {
+		util.InsertionSort(elements)
 	} else {
 		// this will trigger an alloc because sorts uses interface{} internaly
 		// which confuses the escape analysis

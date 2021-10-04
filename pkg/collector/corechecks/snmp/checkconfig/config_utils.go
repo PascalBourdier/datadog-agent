@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/DataDog/datadog-agent/pkg/util"
+	"github.com/DataDog/datadog-agent/pkg/tagset"
 )
 
 func buildDeviceID(origTags []string) (string, []string) {
@@ -22,7 +22,7 @@ func buildDeviceID(origTags []string) (string, []string) {
 
 		tags = append(tags, tag)
 	}
-	tags = util.SortUniqInPlace(tags)
+	tags = tagset.SortUniqInPlace(tags)
 	for _, tag := range tags {
 		// the implementation of h.Write never returns a non-nil error
 		_, _ = h.Write([]byte(tag))

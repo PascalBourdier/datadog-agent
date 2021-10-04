@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/DataDog/datadog-agent/pkg/epforwarder"
-	"github.com/DataDog/datadog-agent/pkg/util"
+	"github.com/DataDog/datadog-agent/pkg/tagset"
 	"github.com/DataDog/datadog-agent/pkg/util/log"
 
 	"github.com/DataDog/datadog-agent/pkg/collector/corechecks/snmp/checkconfig"
@@ -22,7 +22,7 @@ var interfaceNameTagKey = "interface"
 // ReportNetworkDeviceMetadata reports device metadata
 func (ms *MetricSender) ReportNetworkDeviceMetadata(config *checkconfig.CheckConfig, store *valuestore.ResultValueStore, origTags []string, collectTime time.Time, deviceStatus metadata.DeviceStatus) {
 	tags := common.CopyStrings(origTags)
-	tags = util.SortUniqInPlace(tags)
+	tags = tagset.SortUniqInPlace(tags)
 
 	device := buildNetworkDeviceMetadata(config.DeviceID, config.DeviceIDTags, config, store, tags, deviceStatus)
 
